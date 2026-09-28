@@ -1,0 +1,31 @@
+$ ./scripts/make-tls.sh
+subject=CN=tasktracker.local, O=DSO202
+X509v3 Subject Alternative Name: 
+    DNS:tasktracker.local
+notAfter=Feb  8 08:20:51 2027 GMT
+secret/tasktracker-tls created
+
+$ kubectl apply -f manifests/08-ingress.yaml
+ingress.networking.k8s.io/tasktracker-ingress created
+
+$ kubectl get ingress tasktracker-ingress
+NAME                  CLASS   HOSTS               ADDRESS   PORTS     AGE
+tasktracker-ingress   nginx   tasktracker.local             80, 443   0s
+
+$ kubectl describe ingress tasktracker-ingress | sed -n '/^Default/,/^Annotations/p'
+Default backend:  <default>
+TLS:
+  tasktracker-tls terminates tasktracker.local
+Rules:
+  Host               Path  Backends
+  ----               ----  --------
+  tasktracker.local  
+                     /api   backend-svc:http (10.244.2.5:8080,10.244.1.6:8080)
+                     /      frontend-svc:http (10.244.2.6:8080,10.244.1.7:8080)
+Annotations:         nginx.ingress.kubernetes.io/proxy-body-size: 1m
+
+$ kubectl get endpointslices -l 'kubernetes.io/service-name in (backend-svc,frontend-svc)'
+NAME                 ADDRESSTYPE   PORTS   ENDPOINTS               AGE
+backend-svc-nvldn    IPv4          8080    10.244.2.5,10.244.1.6   6m56s
+frontend-svc-hcl4m   IPv4          8080    10.244.2.6,10.244.1.7   6m56s
+

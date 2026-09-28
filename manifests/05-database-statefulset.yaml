@@ -1,0 +1,123 @@
+# =============================================================================
+# File       : manifests/05-database-statefulset.yaml
+# Unit II    : 2.1.2 ordinal index, 2.1.3 headless Service, 2.1.4 volumeClaimTemplates
+# Apply with : kubectl apply -f manifests/05-database-statefulset.yaml
+# Watch with : kubectl rollout status statefulset/db -n dso202-assignment-02
+#
+# WHAT CHANGED FROM ASSIGNMENT 1
+#   Assignment 1: Deployment 'db-deployment' + hand-made PVC 'db-pvc'.
+#     Pod name was random (db-deployment-7c9f...-x2k4p), and the PVC was a
+#     separate object the Deployment merely referenced.
+#   Assignment 2: StatefulSet 'db'.
+#     - Pod is always named db-0 and always reachable at
+#       db-0.db-svc.dso202-assignment-02.svc.cluster.local
+#     - Its PVC (data-db-0) is generated from volumeClaimTemplates and is
+#       re-attached to db-0 every time the Pod is recreated.
+#
+# WHY replicas: 1
+#   The Task Tracker image is a single plain PostgreSQL server with no
+#   replication configured. A StatefulSet guarantees identity, it does NOT
+#   make PostgreSQL replicate (lecture 2.1.9, first pitfall). Running 3
+#   replicas here would give 3 independent, diverging databases. Multi-replica
+#   PostgreSQL with failover is shown with an Operator in operator/.
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-svc
+  namespace: dso202-assignment-02
+  labels: { app: tasktracker, tier: database }
+spec:
+  # Headless: no virtual IP. DNS returns the Pod IP directly and creates the
+  # stable per-Pod record db-0.db-svc... that a StatefulSet relies on.
+  clusterIP: None
+  selector: { app: tasktracker, tier: database }
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: dso202-assignment-02
+  labels: { app: tasktracker, tier: database }
+spec:
+  # Must name the headless Service above; this is what produces the
+  # per-Pod DNS names.
+  serviceName: db-svc
+  replicas: 1
+  # OrderedReady (default) stated explicitly: db-0 must be Ready before any
+  # higher ordinal would be created.
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels: { app: tasktracker, tier: database }
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # 0 = update every ordinal. Raise it to hold back lower ordinals for a
+      # canary-style upgrade (lecture 2.1.8).
+      partition: 0
+  # Never delete database storage implicitly. Scaling down or deleting the
+  # StatefulSet leaves data-db-0 in place (lecture 2.1.6).
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  template:
+    metadata:
+      labels: { app: tasktracker, tier: database }
+    spec:
+      serviceAccountName: db-sa
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: postgres
+          # Same image as Assignment 1: postgres:17 + the tasks seed script.
+          image: sarojsanyasi/dso202-db:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          envFrom:
+            - configMapRef: { name: tasktracker-config }
+            - secretRef: { name: tasktracker-db-secret }
+          env:
+            # Use a sub-directory of the mount so initdb never sees the
+            # volume's own lost+found or other provisioner files.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          # pg_isready answers only once the server accepts connections, so
+          # db-0 is Ready (and listed in DNS for clients) only when usable.
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          resources:
+            requests: { cpu: 250m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          volumeMounts:
+            # 'data' matches the volumeClaimTemplate name below. There is no
+            # 'volumes:' entry - the StatefulSet wires it up per replica.
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    # Generates one PVC per replica, named <template>-<pod>: data-db-0.
+    - metadata:
+        name: data
+        labels: { app: tasktracker, tier: database }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        # kind's default StorageClass (local-path, WaitForFirstConsumer):
+        # the volume is provisioned on whichever node db-0 is scheduled to.
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 1Gi

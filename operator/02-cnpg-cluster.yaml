@@ -1,0 +1,69 @@
+# =============================================================================
+# File       : operator/02-cnpg-cluster.yaml
+# Unit II    : 2.4.3 Example - PostgreSQL Operator (CloudNativePG)
+# Requires   : CloudNativePG operator v1.30.1 installed (README step 5):
+#   kubectl apply --server-side -f \
+#     https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.30/releases/cnpg-1.30.1.yaml
+# Apply with : kubectl apply -f operator/02-cnpg-cluster.yaml
+#
+# WHY AN OPERATOR
+#   manifests/05-database-statefulset.yaml gives the Task Tracker database a
+#   stable name and its own disk, but a StatefulSet knows nothing about
+#   PostgreSQL: it cannot stream-replicate, elect a new primary, or move the
+#   "write" Service when the primary dies. CloudNativePG encodes exactly that
+#   operational knowledge in a controller that reconciles 'Cluster' objects.
+#
+#   One short spec below becomes: 2 PostgreSQL Pods with streaming replication,
+#   one PVC each, Services tasksdb-ha-rw / -ro / -r, generated credentials, and
+#   automatic failover. Delete the primary Pod to watch it happen.
+#
+# WHY BOTH INSTANCES ARE PINNED TO dso202-worker
+#   The operand image ghcr.io/cloudnative-pg/postgresql:17 (251 MB) took over
+#   5 hours to reach dso202-worker on this network: DNS lookups of ghcr.io
+#   failed intermittently ("server misbehaving") and the kubelet kept backing
+#   off (evidence/U2-17). kind's containerd discards compressed layers after
+#   unpacking, so the image could not be copied to dso202-worker2 either.
+#   nodeSelector keeps both instances on the node that has the images.
+#   Failover is per Pod, so the demonstration is unaffected; in production the
+#   instances would be spread across nodes/zones (see 'affinity' below).
+#
+# Lives in its own namespace so its Pods do not count against the
+# Task Tracker quota.
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dso202-operator-lab
+  labels:
+    dso202/assignment: "02"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: tasksdb-ha
+  namespace: dso202-operator-lab
+spec:
+  # One primary + one streaming replica. The operator, not a human, decides
+  # which Pod is primary and labels it role=primary.
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  # Same database/owner names as the Task Tracker, created by the operator.
+  bootstrap:
+    initdb:
+      database: tasksdb
+      owner: taskuser
+  storage:
+    size: 1Gi
+    storageClass: standard
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+  # Promote a replica immediately when the primary fails (classroom demo).
+  failoverDelay: 0
+  affinity:
+    # Only this node holds the images (see header). Remove in a real cluster.
+    nodeSelector:
+      kubernetes.io/hostname: dso202-worker
+    # 'preferred' (not 'required') so both instances may share that node.
+    enablePodAntiAffinity: true
+    podAntiAffinityType: preferred

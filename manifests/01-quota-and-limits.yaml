@@ -1,0 +1,47 @@
+# =============================================================================
+# File       : manifests/01-quota-and-limits.yaml
+# Apply with : kubectl apply -f manifests/01-quota-and-limits.yaml
+# Contains   : ResourceQuota + LimitRange (Unit I 1.5.3, kept from Assignment 1)
+#
+# Budget check (requests):
+#   db-0          250m / 256Mi
+#   backend x2    2 x 100m / 128Mi
+#   frontend x2   2 x  50m /  64Mi
+#   total         550m / 640Mi  -> well inside 2 CPU / 2Gi, leaving room for
+#                                  one surge Pod per Deployment during rollouts.
+# =============================================================================
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: tasktracker-quota
+  namespace: dso202-assignment-02
+  labels:
+    dso202/assignment: "02"
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 2Gi
+    limits.cpu: "4"
+    limits.memory: 4Gi
+    pods: "10"
+    # A StatefulSet creates one PVC per replica; cap them so a mistaken
+    # 'replicas: 50' cannot silently claim 50 volumes.
+    persistentvolumeclaims: "4"
+    count/services: "5"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: tasktracker-limits
+  namespace: dso202-assignment-02
+  labels:
+    dso202/assignment: "02"
+spec:
+  limits:
+    # Defaults only apply to containers that omit resources. Every container
+    # in this assignment declares its own, so these are a safety net.
+    - type: Container
+      default: { cpu: 250m, memory: 256Mi }
+      defaultRequest: { cpu: 100m, memory: 128Mi }
+      max: { cpu: 500m, memory: 512Mi }
+      min: { cpu: 10m, memory: 16Mi }

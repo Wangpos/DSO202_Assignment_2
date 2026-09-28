@@ -1,0 +1,18 @@
+$ kubectl get pods -l tier=backend
+NAME                       READY   STATUS    RESTARTS      AGE
+backend-64494cd7dc-l7swd   1/1     Running   1 (63s ago)   2m3s
+backend-64494cd7dc-mx8jp   1/1     Running   1 (63s ago)   2m3s
+
+$ kubectl get pod backend-64494cd7dc-l7swd -o jsonpath='{.status.containerStatuses[0].lastState.terminated.reason} exitCode={.status.containerStatuses[0].lastState.terminated.exitCode} at {.status.containerStatuses[0].lastState.terminated.finishedAt}{"\n"}'
+Error exitCode=1 at 2026-11-10T08:14:55Z
+
+$ kubectl logs backend-64494cd7dc-l7swd --previous | grep -E "Unhandled 'error'|^error:|Emitted 'error'"
+      throw er; // Unhandled 'error' event
+error: terminating connection due to administrator command
+Emitted 'error' event on BoundPool instance at:
+
+$ kubectl logs backend-64494cd7dc-l7swd --tail=3
+[db] not reachable yet (ENOTFOUND), retrying in 2000ms
+[db] connected
+[server] listening on :8080
+

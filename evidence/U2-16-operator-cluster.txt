@@ -1,0 +1,15 @@
+$ kubectl get deploy,pods -n cnpg-system
+NAME                                      READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/cnpg-controller-manager   1/1     1            1           5h39m
+
+NAME                                           READY   STATUS    RESTARTS   AGE
+pod/cnpg-controller-manager-85b486954d-gvb8v   1/1     Running   0          5h39m
+
+$ kubectl apply -f operator/02-cnpg-cluster.yaml
+namespace/dso202-operator-lab unchanged
+cluster.postgresql.cnpg.io/tasksdb-ha created
+
+$ kubectl get clusters.postgresql.cnpg.io -n dso202-operator-lab
+NAME         AGE   INSTANCES   READY   STATUS   PRIMARY
+tasksdb-ha   0s                                 
+

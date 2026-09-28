@@ -1,0 +1,30 @@
+$ kubectl get serviceaccounts,roles,rolebindings
+NAME                                  AGE
+serviceaccount/backend-sa             97s
+serviceaccount/db-sa                  97s
+serviceaccount/default                97s
+serviceaccount/frontend-sa            97s
+serviceaccount/tasktracker-deployer   97s
+serviceaccount/tasktracker-viewer     97s
+
+NAME                                                   CREATED AT
+role.rbac.authorization.k8s.io/tasktracker-deployer    2026-11-10T08:13:55Z
+role.rbac.authorization.k8s.io/tasktracker-read-only   2026-11-10T08:13:55Z
+
+NAME                                                                 ROLE                         AGE
+rolebinding.rbac.authorization.k8s.io/tasktracker-deployer-binding   Role/tasktracker-deployer    97s
+rolebinding.rbac.authorization.k8s.io/tasktracker-viewer-binding     Role/tasktracker-read-only   97s
+
+$ kubectl describe role tasktracker-deployer
+Name:         tasktracker-deployer
+Labels:       app.kubernetes.io/part-of=task-tracker
+Annotations:  <none>
+PolicyRule:
+  Resources                    Non-Resource URLs  Resource Names  Verbs
+  ---------                    -----------------  --------------  -----
+  configmaps                   []                 []              [get list watch create update patch]
+  services                     []                 []              [get list watch create update patch]
+  deployments.apps             []                 []              [get list watch create update patch]
+  statefulsets.apps            []                 []              [get list watch create update patch]
+  ingresses.networking.k8s.io  []                 []              [get list watch create update patch]
+

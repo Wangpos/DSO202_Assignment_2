@@ -1,0 +1,37 @@
+$ kubectl scale statefulset db --replicas=0 && kubectl wait --for=delete pod/db-0 --timeout=60s
+statefulset.apps/db scaled
+pod/db-0 condition met
+
+$ sleep 15; curl -sk -o /dev/null -w 'GET /api/status -> HTTP %{http_code}\n' --resolve tasktracker.local:8443:127.0.0.1 https://tasktracker.local:8443/api/status
+GET /api/status -> HTTP 503
+
+$ kubectl get pods -l tier=backend
+NAME                       READY   STATUS             RESTARTS      AGE
+backend-64494cd7dc-l7swd   0/1     CrashLoopBackOff   3 (16s ago)   9m23s
+backend-64494cd7dc-mx8jp   0/1     CrashLoopBackOff   3 (16s ago)   9m23s
+
+$ kubectl get endpointslices -l kubernetes.io/service-name=backend-svc -o jsonpath='{range .items[*].endpoints[*]}{.addresses[0]}  ready={.conditions.ready}{"\n"}{end}'
+10.244.2.5  ready=false
+10.244.1.6  ready=false
+
+$ kubectl logs -n ingress-nginx deploy/ingress-nginx-controller --since=30s | grep -m1 'active Endpoint' | cut -c50-140
+ Service "dso202-assignment-02/backend-svc" does not have any active Endpoint.
+
+$ kubectl get pvc data-db-0
+NAME        STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+data-db-0   Bound    pvc-4465f3b5-37d4-44d4-839d-5d1dca33eb58   1Gi        RWO            standard       <unset>                 9m23s
+
+$ kubectl scale statefulset db --replicas=1 && kubectl rollout status statefulset/db && kubectl wait --for=condition=Ready pod -l tier=backend --timeout=180s
+statefulset.apps/db scaled
+Waiting for 1 pods to be ready...
+partitioned roll out complete: 1 new pods have been updated...
+pod/backend-64494cd7dc-l7swd condition met
+pod/backend-64494cd7dc-mx8jp condition met
+
+$ kubectl get endpointslices -l kubernetes.io/service-name=backend-svc -o jsonpath='{range .items[*].endpoints[*]}{.addresses[0]}  ready={.conditions.ready}{"\n"}{end}'
+10.244.2.5  ready=true
+10.244.1.6  ready=true
+
+$ sleep 10; curl -sk -w '  <- HTTP %{http_code}\n' --resolve tasktracker.local:8443:127.0.0.1 https://tasktracker.local:8443/api/status
+{"status":"ok","db":"connected"}  <- HTTP 200
+

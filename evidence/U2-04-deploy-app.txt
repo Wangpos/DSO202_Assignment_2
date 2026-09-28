@@ -1,0 +1,44 @@
+$ kubectl apply -f manifests/00-namespace.yaml -f manifests/01-quota-and-limits.yaml -f manifests/02-config.yaml -f manifests/03-serviceaccounts.yaml -f manifests/04-rbac.yaml -f manifests/05-database-statefulset.yaml -f manifests/06-backend.yaml -f manifests/07-frontend.yaml
+namespace/dso202-assignment-02 created
+resourcequota/tasktracker-quota created
+limitrange/tasktracker-limits created
+configmap/tasktracker-config created
+secret/tasktracker-db-secret created
+serviceaccount/db-sa created
+serviceaccount/backend-sa created
+serviceaccount/frontend-sa created
+serviceaccount/tasktracker-viewer created
+role.rbac.authorization.k8s.io/tasktracker-read-only created
+rolebinding.rbac.authorization.k8s.io/tasktracker-viewer-binding created
+serviceaccount/tasktracker-deployer created
+role.rbac.authorization.k8s.io/tasktracker-deployer created
+rolebinding.rbac.authorization.k8s.io/tasktracker-deployer-binding created
+service/db-svc created
+statefulset.apps/db created
+deployment.apps/backend created
+service/backend-svc created
+configmap/frontend-nginx-conf created
+deployment.apps/frontend created
+service/frontend-svc created
+
+$ kubectl config set-context --current --namespace=dso202-assignment-02
+Context "kind-dso202" modified.
+
+$ kubectl rollout status statefulset/db --timeout=180s
+Waiting for 1 pods to be ready...
+partitioned roll out complete: 1 new pods have been updated...
+
+$ kubectl rollout status deployment/backend --timeout=180s && kubectl rollout status deployment/frontend --timeout=120s
+Waiting for deployment "backend" rollout to finish: 0 of 2 updated replicas are available...
+Waiting for deployment "backend" rollout to finish: 1 of 2 updated replicas are available...
+deployment "backend" successfully rolled out
+deployment "frontend" successfully rolled out
+
+$ kubectl get pods -o wide
+NAME                        READY   STATUS    RESTARTS   AGE   IP           NODE             NOMINATED NODE   READINESS GATES
+backend-64494cd7dc-l7swd    1/1     Running   0          15s   10.244.2.5   dso202-worker2   <none>           <none>
+backend-64494cd7dc-mx8jp    1/1     Running   0          15s   10.244.1.6   dso202-worker    <none>           <none>
+db-0                        1/1     Running   0          15s   10.244.2.8   dso202-worker2   <none>           <none>
+frontend-6d5bd5dfd7-jwjjd   1/1     Running   0          15s   10.244.2.6   dso202-worker2   <none>           <none>
+frontend-6d5bd5dfd7-qqjjp   1/1     Running   0          15s   10.244.1.7   dso202-worker    <none>           <none>
+

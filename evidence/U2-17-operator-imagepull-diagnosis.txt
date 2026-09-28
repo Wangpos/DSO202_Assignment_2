@@ -1,0 +1,15 @@
+$ kubectl get cluster,pods -n dso202-operator-lab
+NAME                                    AGE     INSTANCES   READY   STATUS               PRIMARY
+cluster.postgresql.cnpg.io/tasksdb-ha   4h42m   1                   Setting up primary   
+
+NAME                            READY   STATUS             RESTARTS   AGE
+pod/tasksdb-ha-1-initdb-7m95m   0/1     ImagePullBackOff   0          4h42m
+
+$ kubectl get events -n dso202-operator-lab --field-selector reason=Failed -o jsonpath='{.items[-1].message}' | fold -w 150; echo
+Failed to pull image "ghcr.io/cloudnative-pg/postgresql:17": failed to pull and unpack image "ghcr.io/cloudnative-pg/postgresql:17": failed to resolve
+ reference "ghcr.io/cloudnative-pg/postgresql:17": failed to do request: Head "https://ghcr.io/v2/cloudnative-pg/postgresql/manifests/17": dial tcp: l
+ookup ghcr.io on 192.168.65.254:53: server misbehaving
+
+$ docker exec dso202-worker getent hosts ghcr.io
+20.205.243.164  ghcr.io
+

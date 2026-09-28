@@ -1,0 +1,5 @@
+.DS_Store
+# Private keys and certificates are generated locally, never committed.
+tls/
+*.key
+*.csr

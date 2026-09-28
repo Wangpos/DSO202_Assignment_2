@@ -1,0 +1,39 @@
+$ kubectl get statefulset,deploy,pods,svc,ingress,pvc -n dso202-assignment-02
+NAME                  READY   AGE
+statefulset.apps/db   1/1     5h38m
+
+NAME                       READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/backend    2/2     2            2           5h38m
+deployment.apps/frontend   2/2     2            2           5h38m
+
+NAME                            READY   STATUS    RESTARTS        AGE
+pod/backend-64494cd7dc-l7swd    1/1     Running   4 (5h29m ago)   5h38m
+pod/backend-64494cd7dc-mx8jp    1/1     Running   4 (5h29m ago)   5h38m
+pod/db-0                        1/1     Running   0               5h29m
+pod/frontend-6d5bd5dfd7-jwjjd   1/1     Running   0               5h38m
+pod/frontend-6d5bd5dfd7-qqjjp   1/1     Running   0               5h38m
+
+NAME                   TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+service/backend-svc    ClusterIP   10.96.159.90    <none>        8080/TCP   5h38m
+service/db-svc         ClusterIP   None            <none>        5432/TCP   5h38m
+service/frontend-svc   ClusterIP   10.96.125.205   <none>        8080/TCP   5h38m
+
+NAME                                            CLASS   HOSTS               ADDRESS     PORTS     AGE
+ingress.networking.k8s.io/tasktracker-ingress   nginx   tasktracker.local   localhost   80, 443   5h31m
+
+NAME                              STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+persistentvolumeclaim/data-db-0   Bound    pvc-4465f3b5-37d4-44d4-839d-5d1dca33eb58   1Gi        RWO            standard       <unset>                 5h38m
+
+$ kubectl apply -f manifests/ | grep -v unchanged; echo "changed objects: $(kubectl apply -f manifests/ | grep -vc unchanged)"
+secret/tasktracker-db-secret configured
+statefulset.apps/db configured
+changed objects: 2
+
+$ kubectl diff -f manifests/ && echo 'cluster matches repository'
+cluster matches repository
+
+$ kubectl get statefulset db -o jsonpath='generation={.metadata.generation} revision={.status.currentRevision}{"\n"}'; kubectl apply -f manifests/05-database-statefulset.yaml >/dev/null; kubectl get statefulset db -o jsonpath='generation={.metadata.generation} revision={.status.currentRevision}{"\n"}'; kubectl get pod db-0 -o jsonpath='db-0 uid={.metadata.uid}{"\n"}'
+generation=7 revision=db-6955cb45d8
+generation=7 revision=db-6955cb45d8
+db-0 uid=0bb93e20-94c6-43bb-96eb-0a02c2dc4b88
+

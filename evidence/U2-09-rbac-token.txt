@@ -1,0 +1,25 @@
+$ ./scripts/token-demo.sh tasktracker-viewer
++ kubectl auth whoami
+ATTRIBUTE                                           VALUE
+Username                                            system:serviceaccount:dso202-assignment-02:tasktracker-viewer
+UID                                                 29ba2e07-4585-4519-9b38-bc0bdd0fa96e
+Groups                                              [system:serviceaccounts system:serviceaccounts:dso202-assignment-02 system:authenticated]
+Extra: authentication.kubernetes.io/credential-id   [JTI=aa94eae9-8e54-4cf1-8117-3199551e19d1]
+
++ kubectl get pods -l app=tasktracker
+NAME                        READY   STATUS    RESTARTS      AGE
+backend-64494cd7dc-l7swd    1/1     Running   1 (40s ago)   100s
+backend-64494cd7dc-mx8jp    1/1     Running   1 (40s ago)   100s
+db-0                        1/1     Running   0             39s
+frontend-6d5bd5dfd7-jwjjd   1/1     Running   0             100s
+frontend-6d5bd5dfd7-qqjjp   1/1     Running   0             100s
+
++ kubectl get secrets
+Error from server (Forbidden): secrets is forbidden: User "system:serviceaccount:dso202-assignment-02:tasktracker-viewer" cannot list resource "secrets" in API group "" in the namespace "dso202-assignment-02"
+
++ kubectl delete pod db-0 --dry-run=server
+Error from server (Forbidden): pods "db-0" is forbidden: User "system:serviceaccount:dso202-assignment-02:tasktracker-viewer" cannot delete resource "pods" in API group "" in the namespace "dso202-assignment-02"
+
++ kubectl get pods -n kube-system
+Error from server (Forbidden): pods is forbidden: User "system:serviceaccount:dso202-assignment-02:tasktracker-viewer" cannot list resource "pods" in API group "" in the namespace "kube-system"
+

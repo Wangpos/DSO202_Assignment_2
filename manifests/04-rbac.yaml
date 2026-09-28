@@ -1,0 +1,105 @@
+# =============================================================================
+# File       : manifests/04-rbac.yaml
+# Unit II    : 2.3.1 Roles, 2.3.2 RoleBindings, 2.3.3 Service Accounts
+# Apply with : kubectl apply -f manifests/04-rbac.yaml
+# Verify     : scripts/rbac-check.sh   (runs kubectl auth can-i --as=...)
+#
+# Two human/automation identities for operating the Task Tracker:
+#
+#   tasktracker-viewer   - on-call / support. Read-only: Pods, logs, Services,
+#                          endpoints, workloads, Ingress. No Secrets, no writes.
+#   tasktracker-deployer - CI/CD pipeline (the job ArgoCD does in Unit IV).
+#                          Can create/update/PATCH the app's workloads and
+#                          config, but cannot delete, cannot read Secrets and
+#                          cannot touch anything outside this namespace.
+#
+# Both are namespace-scoped Role + RoleBinding (lecture 2.3.6: default to the
+# narrowest scope; cluster-admin is never the fix for a Forbidden error).
+# =============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tasktracker-viewer
+  namespace: dso202-assignment-02
+  labels: { app.kubernetes.io/part-of: task-tracker }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tasktracker-read-only
+  namespace: dso202-assignment-02
+  labels: { app.kubernetes.io/part-of: task-tracker }
+rules:
+  # "" = core API group.
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "services", "endpoints", "configmaps", "persistentvolumeclaims", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+  # NOTE: "secrets" is intentionally absent. RBAC is additive with no deny
+  # rule, so leaving it out is the only way to withhold it.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tasktracker-viewer-binding
+  namespace: dso202-assignment-02
+  labels: { app.kubernetes.io/part-of: task-tracker }
+subjects:
+  - kind: ServiceAccount
+    name: tasktracker-viewer
+    namespace: dso202-assignment-02
+roleRef:
+  kind: Role
+  name: tasktracker-read-only
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tasktracker-deployer
+  namespace: dso202-assignment-02
+  labels: { app.kubernetes.io/part-of: task-tracker }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tasktracker-deployer
+  namespace: dso202-assignment-02
+  labels: { app.kubernetes.io/part-of: task-tracker }
+rules:
+  # 'patch' is listed explicitly: kubectl apply on an EXISTING object sends a
+  # PATCH, not an UPDATE (lecture 2.3.8). A Role with only 'update' fails on
+  # the second deploy with "cannot patch resource".
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["services", "configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # No 'delete' anywhere: this pipeline ships changes, it never removes them.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tasktracker-deployer-binding
+  namespace: dso202-assignment-02
+  labels: { app.kubernetes.io/part-of: task-tracker }
+subjects:
+  - kind: ServiceAccount
+    name: tasktracker-deployer
+    namespace: dso202-assignment-02
+roleRef:
+  kind: Role
+  name: tasktracker-deployer
+  apiGroup: rbac.authorization.k8s.io

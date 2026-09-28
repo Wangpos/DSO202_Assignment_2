@@ -1,0 +1,15 @@
+$ ./scripts/rbac-check.sh
+IDENTITY               VERB    RESOURCE                       NAMESPACE                 ALLOWED
+tasktracker-viewer     list    pods                           dso202-assignment-02   -> yes
+tasktracker-viewer     get     pods/log                       dso202-assignment-02   -> yes
+tasktracker-viewer     get     secrets                        dso202-assignment-02   -> no
+tasktracker-viewer     delete  pods                           dso202-assignment-02   -> no
+tasktracker-viewer     list    pods                           kube-system            -> no
+tasktracker-deployer   patch   deployments.apps               dso202-assignment-02   -> yes
+tasktracker-deployer   patch   statefulsets.apps              dso202-assignment-02   -> yes
+tasktracker-deployer   create  ingresses.networking.k8s.io    dso202-assignment-02   -> yes
+tasktracker-deployer   delete  deployments.apps               dso202-assignment-02   -> no
+tasktracker-deployer   get     secrets                        dso202-assignment-02   -> no
+tasktracker-deployer   create  deployments.apps               dso202-assignment-01   -> no
+backend-sa             list    pods                           dso202-assignment-02   -> no
+

@@ -1,0 +1,29 @@
+$ curl -sk --resolve tasktracker.local:8443:127.0.0.1 https://tasktracker.local:8443/api/status
+{"status":"ok","db":"connected"}
+
+$ curl -sk --resolve tasktracker.local:8443:127.0.0.1 https://tasktracker.local:8443/api/tasks
+[{"id":1,"title":"Set up kind cluster","description":"Bring up the local cluster from Practical 1","status":"done","created_at":"2026-11-10T08:14:01.099Z"},{"id":2,"title":"Write namespace manifest","description":"One namespace for all assignment resources","status":"in_progress","created_at":"2026-11-10T08:14:01.099Z"},{"id":3,"title":"Wire ConfigMap and Secret","description":"DB_* and POSTGRES_* must carry matching values","status":"pending","created_at":"2026-11-10T08:14:01.099Z"},{"id":4,"title":"Survive db-0 deletion","description":"Written before the StatefulSet Pod is deleted","status":"pending","created_at":"2026-11-10T08:14:55.642Z"}]
+
+$ curl -sk --resolve tasktracker.local:8443:127.0.0.1 https://tasktracker.local:8443/ | grep -i -m2 -E '<title>|config.js'
+<title>Field Log — Task Tracker</title>
+<script src="config.js"></script>
+
+$ curl -sk --resolve tasktracker.local:8443:127.0.0.1 https://tasktracker.local:8443/config.js
+// Rendered at container start by docker-entrypoint.sh via envsubst.
+// Static assets can't read environment variables at request time, so the
+// real value gets baked into config.js once, right before nginx starts.
+window.__CONFIG__ = {
+  BACKEND_URL: ""
+};
+
+$ curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}\n' --resolve tasktracker.local:8088:127.0.0.1 http://tasktracker.local:8088/api/status
+308 -> https://tasktracker.local/api/status
+
+$ curl -sk -o /dev/null -w 'Host other.local -> HTTP %{http_code}\n' -H 'Host: other.local' https://127.0.0.1:8443/api/status
+Host other.local -> HTTP 404
+
+$ curl -sk --resolve tasktracker.local:8443:127.0.0.1 https://tasktracker.local:8443/ -v 2>&1 | grep -E 'subject:|issuer:|SSL connection'
+* SSL connection using TLSv1.3 / AEAD-AES256-GCM-SHA384 / [blank] / UNDEF
+*  subject: CN=tasktracker.local; O=DSO202
+*  issuer: CN=tasktracker.local; O=DSO202
+

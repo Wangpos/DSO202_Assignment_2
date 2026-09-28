@@ -1,0 +1,103 @@
+# =============================================================================
+# File       : manifests/07-frontend.yaml
+# Apply with : kubectl apply -f manifests/07-frontend.yaml
+# Contains   : nginx ConfigMap + Deployment + ClusterIP Service
+#
+# WHAT CHANGED FROM ASSIGNMENT 1
+#   - frontend-svc is now ClusterIP, not NodePort 30080. The Ingress
+#     controller is the single entry point into the cluster (lecture 2.2.2),
+#     so no application Service needs a node port of its own.
+#   - The nginx '/api/' proxy block is gone. Path routing is now declared once,
+#     in the Ingress, instead of being hidden inside the frontend container.
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-nginx-conf
+  namespace: dso202-assignment-02
+  labels: { app: tasktracker, tier: frontend }
+data:
+  nginx.conf: |
+    worker_processes auto;
+    pid /tmp/nginx.pid;
+    events { worker_connections 1024; }
+    http {
+      include /etc/nginx/mime.types;
+      default_type application/octet-stream;
+      client_body_temp_path /tmp/client_temp;
+      proxy_temp_path /tmp/proxy_temp;
+      sendfile on;
+      keepalive_timeout 65;
+      server {
+        listen 8080;
+        root /usr/share/nginx/html;
+        index index.html;
+        location = /config.js { add_header Cache-Control "no-store"; }
+        location = /healthz   { access_log off; return 200 "ok\n"; }
+        location / { try_files $uri $uri/ /index.html; }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: dso202-assignment-02
+  labels: { app: tasktracker, tier: frontend }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: tasktracker, tier: frontend }
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  template:
+    metadata:
+      labels: { app: tasktracker, tier: frontend }
+    spec:
+      serviceAccountName: frontend-sa
+      automountServiceAccountToken: false
+      containers:
+        - name: frontend
+          image: sarojsanyasi/dso202-frontend:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          # Render config.js from BACKEND_URL (now "" = same origin), then run
+          # nginx with the ConfigMap's config.
+          command: ["/bin/sh", "-c"]
+          args:
+            - sed "s|\${BACKEND_URL}|${BACKEND_URL}|g" /usr/share/nginx/html/config.js.template > /usr/share/nginx/html/config.js && cp /etc/nginx-config/nginx.conf /tmp/nginx.conf && exec nginx -c /tmp/nginx.conf -g 'daemon off;'
+          envFrom:
+            - configMapRef: { name: tasktracker-config }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx-config
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: frontend-nginx-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-svc
+  namespace: dso202-assignment-02
+  labels: { app: tasktracker, tier: frontend }
+spec:
+  type: ClusterIP
+  selector: { app: tasktracker, tier: frontend }
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

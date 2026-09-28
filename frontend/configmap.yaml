@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-nginx-conf
+  namespace: dso202-assignment-01
+data:
+  nginx.conf: |
+    worker_processes auto;
+    pid /tmp/nginx.pid;
+
+    events {
+      worker_connections 1024;
+    }
+
+    http {
+      include /etc/nginx/mime.types;
+      default_type application/octet-stream;
+      client_body_temp_path /tmp/client_temp;
+      proxy_temp_path /tmp/proxy_temp;
+      sendfile on;
+      keepalive_timeout 65;
+
+      server {
+        listen 8080;
+        server_name localhost;
+
+        root /usr/share/nginx/html;
+        index index.html index.htm;
+
+        location = /config.js {
+          add_header Cache-Control "no-store";
+        }
+
+        location /api/ {
+          proxy_pass http://backend-svc:8080/api/;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        location / {
+          try_files $uri $uri/ /index.html;
+        }
+      }
+    }

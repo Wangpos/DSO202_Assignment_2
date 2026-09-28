@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+  namespace: dso202-unit2
+spec:
+  clusterIP: None
+  selector:
+    app: postgres-lab
+  ports:
+    - name: postgres
+      port: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-lab
+  namespace: dso202-unit2
+spec:
+  serviceName: postgres-headless
+  replicas: 2
+  selector:
+    matchLabels:
+      app: postgres-lab
+  template:
+    metadata:
+      labels:
+        app: postgres-lab
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          env:
+            - name: POSTGRES_PASSWORD
+              value: unit2-demo-password
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi

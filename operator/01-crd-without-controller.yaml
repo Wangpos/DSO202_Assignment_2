@@ -1,0 +1,66 @@
+# =============================================================================
+# File       : operator/01-crd-without-controller.yaml
+# Unit II    : 2.4.1 CRDs and lifecycle management
+# Apply with : kubectl apply -f operator/01-crd-without-controller.yaml
+#
+# PURPOSE: prove that a CRD on its own only teaches the API server a new noun.
+# After applying this file, 'kubectl get tasktrackerdbs' works and the object
+# is stored in etcd, but NOTHING is provisioned - no StatefulSet, no Pod, no
+# Service - because no controller is watching this type (lecture 2.4.9).
+# operator/02-cnpg-cluster.yaml then shows the same idea with a real Operator.
+# =============================================================================
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  # Must be <plural>.<group>
+  name: tasktrackerdbs.dso202.cst.edu.bt
+spec:
+  group: dso202.cst.edu.bt
+  names:
+    kind: TaskTrackerDB
+    plural: tasktrackerdbs
+    singular: tasktrackerdb
+    shortNames: [ttdb]
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      # Separate status subresource: a controller would write progress here
+      # (observedGeneration, phase); users write only spec.
+      subresources:
+        status: {}
+      # Extra columns for 'kubectl get tasktrackerdbs'.
+      additionalPrinterColumns:
+        - { name: Version, type: string, jsonPath: .spec.postgresVersion }
+        - { name: Replicas, type: integer, jsonPath: .spec.replicas }
+        - { name: Phase, type: string, jsonPath: .status.phase }
+        - { name: Age, type: date, jsonPath: .metadata.creationTimestamp }
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [postgresVersion, replicas, storageSize]
+              properties:
+                postgresVersion: { type: string }
+                replicas: { type: integer, minimum: 1, maximum: 5 }
+                storageSize: { type: string, pattern: '^[0-9]+(Mi|Gi)$' }
+            status:
+              type: object
+              properties:
+                observedGeneration: { type: integer }
+                phase: { type: string }
+---
+# A Custom Resource (one instance of the new type). Valid against the schema,
+# accepted and stored - and then ignored, because nothing reconciles it.
+apiVersion: dso202.cst.edu.bt/v1
+kind: TaskTrackerDB
+metadata:
+  name: tasks-ha
+  namespace: dso202-assignment-02
+spec:
+  postgresVersion: "17"
+  replicas: 3
+  storageSize: 1Gi

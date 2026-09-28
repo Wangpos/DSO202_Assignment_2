@@ -1,0 +1,26 @@
+$ kubectl exec deploy/backend -- wget -qO- --header 'Content-Type: application/json' --post-data '{"title":"Survive db-0 deletion","description":"Written before the StatefulSet Pod is deleted"}' http://localhost:8080/api/tasks
+{"id":4,"title":"Survive db-0 deletion","description":"Written before the StatefulSet Pod is deleted","status":"pending","created_at":"2026-11-10T08:14:55.642Z"}
+
+$ kubectl get pod db-0 -o 'custom-columns=POD:.metadata.name,UID:.metadata.uid,NODE:.spec.nodeName,PVC:.spec.volumes[0].persistentVolumeClaim.claimName'
+POD    UID                                    NODE             PVC
+db-0   100fcbd8-dd43-4935-ac69-afaea77603af   dso202-worker2   data-db-0
+
+$ kubectl delete pod db-0
+pod "db-0" deleted from dso202-assignment-02 namespace
+
+$ kubectl wait --for=condition=Ready pod/db-0 --timeout=120s
+pod/db-0 condition met
+
+$ kubectl get pod db-0 -o 'custom-columns=POD:.metadata.name,UID:.metadata.uid,NODE:.spec.nodeName,PVC:.spec.volumes[0].persistentVolumeClaim.claimName'
+POD    UID                                    NODE             PVC
+db-0   bffd304f-abbc-4f51-a84f-cc6ee212c959   dso202-worker2   data-db-0
+
+$ kubectl exec db-0 -- psql -U taskuser -d tasksdb -c 'SELECT id, title, status FROM tasks ORDER BY id;'
+ id |           title           |   status    
+----+---------------------------+-------------
+  1 | Set up kind cluster       | done
+  2 | Write namespace manifest  | in_progress
+  3 | Wire ConfigMap and Secret | pending
+  4 | Survive db-0 deletion     | pending
+(4 rows)
+

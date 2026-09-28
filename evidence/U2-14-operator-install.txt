@@ -1,0 +1,47 @@
+$ kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.30/releases/cnpg-1.30.1.yaml | grep -E 'customresourcedefinition|clusterrole|deployment|serviceaccount'
+customresourcedefinition.apiextensions.k8s.io/backups.postgresql.cnpg.io serverside-applied
+customresourcedefinition.apiextensions.k8s.io/clusterimagecatalogs.postgresql.cnpg.io serverside-applied
+customresourcedefinition.apiextensions.k8s.io/clusters.postgresql.cnpg.io serverside-applied
+customresourcedefinition.apiextensions.k8s.io/databaseroles.postgresql.cnpg.io serverside-applied
+customresourcedefinition.apiextensions.k8s.io/databases.postgresql.cnpg.io serverside-applied
+customresourcedefinition.apiextensions.k8s.io/failoverquorums.postgresql.cnpg.io serverside-applied
+customresourcedefinition.apiextensions.k8s.io/imagecatalogs.postgresql.cnpg.io serverside-applied
+customresourcedefinition.apiextensions.k8s.io/poolers.postgresql.cnpg.io serverside-applied
+customresourcedefinition.apiextensions.k8s.io/publications.postgresql.cnpg.io serverside-applied
+customresourcedefinition.apiextensions.k8s.io/scheduledbackups.postgresql.cnpg.io serverside-applied
+customresourcedefinition.apiextensions.k8s.io/subscriptions.postgresql.cnpg.io serverside-applied
+serviceaccount/cnpg-manager serverside-applied
+clusterrole.rbac.authorization.k8s.io/cnpg-database-editor-role serverside-applied
+clusterrole.rbac.authorization.k8s.io/cnpg-database-viewer-role serverside-applied
+clusterrole.rbac.authorization.k8s.io/cnpg-manager serverside-applied
+clusterrole.rbac.authorization.k8s.io/cnpg-publication-editor-role serverside-applied
+clusterrole.rbac.authorization.k8s.io/cnpg-publication-viewer-role serverside-applied
+clusterrole.rbac.authorization.k8s.io/cnpg-subscription-editor-role serverside-applied
+clusterrole.rbac.authorization.k8s.io/cnpg-subscription-viewer-role serverside-applied
+clusterrolebinding.rbac.authorization.k8s.io/cnpg-manager-rolebinding serverside-applied
+deployment.apps/cnpg-controller-manager serverside-applied
+
+$ kubectl rollout status -n cnpg-system deployment/cnpg-controller-manager --timeout=900s
+Waiting for deployment "cnpg-controller-manager" rollout to finish: 0 of 1 updated replicas are available...
+error: deployment "cnpg-controller-manager" exceeded its progress deadline
+
+$ kubectl get deploy,pods -n cnpg-system
+NAME                                      READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/cnpg-controller-manager   0/1     1            0           10m
+
+NAME                                           READY   STATUS              RESTARTS   AGE
+pod/cnpg-controller-manager-85b486954d-gvb8v   0/1     ContainerCreating   0          10m
+
+$ kubectl get crd | grep cnpg.io
+backups.postgresql.cnpg.io                2026-11-10T08:35:00Z
+clusterimagecatalogs.postgresql.cnpg.io   2026-11-10T08:35:00Z
+clusters.postgresql.cnpg.io               2026-11-10T08:35:00Z
+databaseroles.postgresql.cnpg.io          2026-11-10T08:35:00Z
+databases.postgresql.cnpg.io              2026-11-10T08:35:00Z
+failoverquorums.postgresql.cnpg.io        2026-11-10T08:35:00Z
+imagecatalogs.postgresql.cnpg.io          2026-11-10T08:35:00Z
+poolers.postgresql.cnpg.io                2026-11-10T08:35:00Z
+publications.postgresql.cnpg.io           2026-11-10T08:35:00Z
+scheduledbackups.postgresql.cnpg.io       2026-11-10T08:35:00Z
+subscriptions.postgresql.cnpg.io          2026-11-10T08:35:00Z
+

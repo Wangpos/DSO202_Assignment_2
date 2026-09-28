@@ -1,0 +1,27 @@
+$ kubectl apply -f operator/01-crd-without-controller.yaml
+customresourcedefinition.apiextensions.k8s.io/tasktrackerdbs.dso202.cst.edu.bt created
+error: resource mapping not found for name: "tasks-ha" namespace: "dso202-assignment-02" from "operator/01-crd-without-controller.yaml": no matches for kind "TaskTrackerDB" in version "dso202.cst.edu.bt/v1"
+ensure CRDs are installed first
+
+$ kubectl wait --for=condition=Established crd/tasktrackerdbs.dso202.cst.edu.bt --timeout=30s
+customresourcedefinition.apiextensions.k8s.io/tasktrackerdbs.dso202.cst.edu.bt condition met
+
+$ kubectl apply -f operator/01-crd-without-controller.yaml
+customresourcedefinition.apiextensions.k8s.io/tasktrackerdbs.dso202.cst.edu.bt unchanged
+tasktrackerdb.dso202.cst.edu.bt/tasks-ha created
+
+$ kubectl get tasktrackerdbs
+NAME       VERSION   REPLICAS   PHASE   AGE
+tasks-ha   17        3                  0s
+
+$ kubectl get ttdb tasks-ha -o jsonpath='generation={.metadata.generation} status={.status}{"\n"}'
+generation=1 status=
+
+$ kubectl get statefulsets,pods -l 'app notin (tasktracker)'
+No resources found in dso202-assignment-02 namespace.
+
+$ kubectl apply -f - <<< '{"apiVersion":"dso202.cst.edu.bt/v1","kind":"TaskTrackerDB","metadata":{"name":"bad"},"spec":{"postgresVersion":"17","replicas":9,"storageSize":"lots"}}'
+The TaskTrackerDB "bad" is invalid: 
+* spec.replicas: Invalid value: 9: spec.replicas in body should be less than or equal to 5
+* spec.storageSize: Invalid value: "lots": spec.storageSize in body should match '^[0-9]+(Mi|Gi)$'
+

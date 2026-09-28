@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: dso202-assignment-01
+  labels: { app: dso202, tier: backend }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: dso202, tier: backend }
+  template:
+    metadata:
+      labels: { app: dso202, tier: backend }
+    spec:
+      containers:
+        - name: backend
+          image: sarojsanyasi/dso202-backend:1.0
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: dso202-config }
+            - secretRef: { name: dso202-secret }

@@ -1,0 +1,36 @@
+$ kubectl exec -n dso202-operator-lab tasksdb-ha-1 -c postgres -- psql -U postgres -d tasksdb -c "CREATE TABLE tasks(id serial PRIMARY KEY, title text); INSERT INTO tasks(title) VALUES ('written on tasksdb-ha-1 before failover');"
+CREATE TABLE
+INSERT 0 1
+
+$ kubectl get endpointslices -n dso202-operator-lab -l kubernetes.io/service-name=tasksdb-ha-rw -o jsonpath='tasksdb-ha-rw -> {.items[0].endpoints[0].targetRef.name} ({.items[0].endpoints[0].addresses[0]}){"\n"}'
+tasksdb-ha-rw -> tasksdb-ha-1 (10.244.1.14)
+
+$ kubectl delete pod tasksdb-ha-1 -n dso202-operator-lab
+pod "tasksdb-ha-1" deleted from dso202-operator-lab namespace
+
+$ sleep 20; kubectl get cluster -n dso202-operator-lab
+NAME         AGE   INSTANCES   READY   STATUS                     PRIMARY
+tasksdb-ha   89s   2           2       Cluster in healthy state   tasksdb-ha-2
+
+$ kubectl get pods -n dso202-operator-lab -L role
+NAME           READY   STATUS    RESTARTS   AGE   ROLE
+tasksdb-ha-1   1/1     Running   0          18s   replica
+tasksdb-ha-2   1/1     Running   0          60s   primary
+
+$ kubectl get endpointslices -n dso202-operator-lab -l kubernetes.io/service-name=tasksdb-ha-rw -o jsonpath='tasksdb-ha-rw -> {.items[0].endpoints[0].targetRef.name} ({.items[0].endpoints[0].addresses[0]}){"\n"}'
+tasksdb-ha-rw -> tasksdb-ha-2 (10.244.1.17)
+
+$ kubectl exec -n dso202-operator-lab tasksdb-ha-2 -c postgres -- psql -U postgres -d tasksdb -Atc "SELECT pg_is_in_recovery(); INSERT INTO tasks(title) VALUES ('written on tasksdb-ha-2 after failover'); SELECT id, title FROM tasks;"
+f
+INSERT 0 1
+1|written on tasksdb-ha-1 before failover
+34|written on tasksdb-ha-2 after failover
+
+$ kubectl get events -n dso202-operator-lab --sort-by=.lastTimestamp | grep -iE 'failover|promot|primary|switchover' | tail -6 | cut -c1-158
+8m44s       Normal    CreatingInstance              cluster/tasksdb-ha                       Primary instance (initdb)
+90s         Normal    CreatingInstance              cluster/tasksdb-ha                       Primary instance (initdb)
+90s         Normal    CreatingPodDisruptionBudget   cluster/tasksdb-ha                       Creating PodDisruptionBudget tasksdb-ha-primary
+90s         Normal    NoPods                        poddisruptionbudget/tasksdb-ha-primary   No matching pods found
+22s         Normal    FailingOver                   cluster/tasksdb-ha                       Current primary isn't healthy, initiating a failover from tasksdb
+21s         Normal    FailoverTarget                cluster/tasksdb-ha                       Failing over from tasksdb-ha-1 to tasksdb-ha-2
+

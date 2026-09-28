@@ -1,0 +1,14 @@
+$ kubectl config current-context
+kind-dso202
+
+$ kubectl get nodes -o wide
+NAME                   STATUS   ROLES           AGE     VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                       KERNEL-VERSION            CONTAINER-RUNTIME
+dso202-control-plane   Ready    control-plane   7d12h   v1.36.1   172.19.0.2    <none>        Debian GNU/Linux 13 (trixie)   7.0.14-linuxkit (arm64)   containerd://2.3.1
+dso202-worker          Ready    <none>          7d12h   v1.36.1   172.19.0.4    <none>        Debian GNU/Linux 13 (trixie)   7.0.14-linuxkit (arm64)   containerd://2.3.1
+dso202-worker2         Ready    <none>          7d12h   v1.36.1   172.19.0.6    <none>        Debian GNU/Linux 13 (trixie)   7.0.14-linuxkit (arm64)   containerd://2.3.1
+
+$ kind get nodes --name dso202
+dso202-control-plane
+dso202-worker
+dso202-worker2
+

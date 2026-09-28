@@ -1,0 +1,36 @@
+$ kubectl get cluster -n dso202-operator-lab
+NAME         AGE   INSTANCES   READY   STATUS                     PRIMARY
+tasksdb-ha   56s   2           2       Cluster in healthy state   tasksdb-ha-1
+
+$ kubectl get pods,pvc,svc,secrets -n dso202-operator-lab -L role
+NAME               READY   STATUS    RESTARTS   AGE   ROLE
+pod/tasksdb-ha-1   1/1     Running   0          47s   primary
+pod/tasksdb-ha-2   1/1     Running   0          26s   replica
+
+NAME                                 STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE   ROLE
+persistentvolumeclaim/tasksdb-ha-1   Bound    pvc-7dad6ff8-65af-4bf8-9677-493f8872156c   1Gi        RWO            standard       <unset>                 56s   primary
+persistentvolumeclaim/tasksdb-ha-2   Bound    pvc-eb6ced20-43da-43e6-aa17-312a5300695c   1Gi        RWO            standard       <unset>                 36s   replica
+
+NAME                    TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE   ROLE
+service/tasksdb-ha-r    ClusterIP   10.96.108.202   <none>        5432/TCP   56s   
+service/tasksdb-ha-ro   ClusterIP   10.96.243.34    <none>        5432/TCP   56s   
+service/tasksdb-ha-rw   ClusterIP   10.96.230.247   <none>        5432/TCP   56s   
+
+NAME                            TYPE                       DATA   AGE   ROLE
+secret/tasksdb-ha-app           kubernetes.io/basic-auth   11     56s   
+secret/tasksdb-ha-ca            Opaque                     2      56s   
+secret/tasksdb-ha-replication   kubernetes.io/tls          2      56s   
+secret/tasksdb-ha-server        kubernetes.io/tls          2      56s   
+
+$ kubectl get svc tasksdb-ha-rw -n dso202-operator-lab -o jsonpath='tasksdb-ha-rw selector: {.spec.selector}{"\n"}'
+tasksdb-ha-rw selector: {"cnpg.io/cluster":"tasksdb-ha","cnpg.io/instanceRole":"primary"}
+
+$ kubectl exec -n dso202-operator-lab tasksdb-ha-1 -c postgres -- psql -U postgres -c 'SELECT application_name, state, sync_state FROM pg_stat_replication;'
+ application_name |   state   | sync_state 
+------------------+-----------+------------
+ tasksdb-ha-2     | streaming | async
+(1 row)
+
+$ kubectl exec -n dso202-operator-lab tasksdb-ha-2 -c postgres -- psql -U postgres -Atc 'SELECT pg_is_in_recovery();'
+t
+

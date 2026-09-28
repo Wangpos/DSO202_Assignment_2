@@ -1,0 +1,21 @@
+# =============================================================================
+# File       : manifests/00-namespace.yaml
+# Assignment : DSO202 Assignment 2 - Assignment 1 rebuilt with Unit II concepts
+# Apply with : kubectl apply -f manifests/00-namespace.yaml
+# Prefix 00- : applied first; every other object in manifests/ lives in it.
+#
+# A new namespace (not dso202-assignment-01) is used so that the Unit I
+# deployment stays untouched as the baseline, and so the two versions can be
+# compared side by side.
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dso202-assignment-02
+  labels:
+    app.kubernetes.io/part-of: task-tracker
+    dso202/assignment: "02"
+    dso202/managed-by: declarative
+  annotations:
+    dso202.cst.edu.bt/description: "Task Tracker rebuilt with StatefulSet, Ingress, RBAC and Operators"
+    dso202.cst.edu.bt/owner: "twangpodorji"

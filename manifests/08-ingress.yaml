@@ -1,0 +1,59 @@
+# =============================================================================
+# File       : manifests/08-ingress.yaml
+# Unit II    : 2.2.1 routing rules, TLS termination, name-based virtual hosting
+#              2.2.2 Ingress controller (ingress-nginx, installed separately)
+# Requires   : ingress-nginx controller running (README step 3)
+#              Secret 'tasktracker-tls' (scripts/make-tls.sh)
+# Apply with : kubectl apply -f manifests/08-ingress.yaml
+# Test with  : curl -k --resolve tasktracker.local:8443:127.0.0.1 \
+#                   https://tasktracker.local:8443/api/status
+#
+# REQUEST PATH
+#   client --HTTPS--> ingress-nginx  (TLS terminated here with tasktracker-tls)
+#     Host: tasktracker.local, path /api/...  -> backend-svc:8080  -> backend Pods
+#     Host: tasktracker.local, path /...      -> frontend-svc:8080 -> frontend Pods
+#   Plain HTTP exists only inside the cluster, after the controller.
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tasktracker-ingress
+  namespace: dso202-assignment-02
+  labels: { app: tasktracker }
+  annotations:
+    # Controller-specific (prefix nginx.ingress.kubernetes.io/): any other
+    # Ingress controller silently ignores these (lecture 2.2.3).
+    # Redirect plain HTTP to HTTPS for this host.
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Cap request bodies; a task is a few hundred bytes.
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+spec:
+  # Selects the controller. Replaces the deprecated
+  # kubernetes.io/ingress.class annotation.
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - tasktracker.local
+      secretName: tasktracker-tls
+  rules:
+    # Name-based virtual hosting: only requests with Host: tasktracker.local
+    # match. Any other host gets the controller's default 404.
+    - host: tasktracker.local
+      http:
+        paths:
+          # Prefix matches /api, /api/status, /api/tasks/42 - but not /apiv2.
+          # No rewrite-target: the backend itself serves the /api/... paths.
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-svc
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-svc
+                port:
+                  name: http

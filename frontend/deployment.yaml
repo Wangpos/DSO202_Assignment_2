@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  namespace: dso202-assignment-01
+  labels: { app: dso202, tier: frontend }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: dso202, tier: frontend }
+  template:
+    metadata:
+      labels: { app: dso202, tier: frontend }
+    spec:
+      containers:
+        - name: frontend
+          image: sarojsanyasi/dso202-frontend:1.0
+          ports: [{ containerPort: 8080 }]
+          command: ["/bin/sh", "-c"]
+          args:
+            - sed "s|\${BACKEND_URL}|${BACKEND_URL}|g" /usr/share/nginx/html/config.js.template > /usr/share/nginx/html/config.js && cp /etc/nginx-config/nginx.conf /tmp/nginx.conf && exec nginx -c /tmp/nginx.conf -g 'daemon off;'
+          envFrom:
+            - configMapRef: { name: dso202-config }
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx-config
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: frontend-nginx-conf

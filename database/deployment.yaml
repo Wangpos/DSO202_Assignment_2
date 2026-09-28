@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-deployment
+  namespace: dso202-assignment-01
+  labels: { app: dso202, tier: database }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: dso202, tier: database }
+  template:
+    metadata:
+      labels: { app: dso202, tier: database }
+    spec:
+      containers:
+        - name: db
+          image: sarojsanyasi/dso202-db:1.0
+          ports: [{ containerPort: 5432 }]
+          envFrom:
+            - configMapRef: { name: dso202-config }
+            - secretRef: { name: dso202-secret }
+          volumeMounts:
+            - name: db-storage
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: db-storage
+          persistentVolumeClaim: { claimName: db-pvc }

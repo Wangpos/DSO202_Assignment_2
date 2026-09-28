@@ -1,0 +1,71 @@
+# =============================================================================
+# File       : manifests/06-backend.yaml
+# Apply with : kubectl apply -f manifests/06-backend.yaml
+# Contains   : Deployment + ClusterIP Service for the Node.js API
+#
+# The backend stays a Deployment: its replicas are interchangeable and hold no
+# state (lecture 2.1.6 - reach for a StatefulSet only when identity matters).
+# Scaled to 2 so the Ingress has more than one endpoint to balance across.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: dso202-assignment-02
+  labels: { app: tasktracker, tier: backend }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: tasktracker, tier: backend }
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  template:
+    metadata:
+      labels: { app: tasktracker, tier: backend }
+    spec:
+      serviceAccountName: backend-sa
+      automountServiceAccountToken: false
+      containers:
+        - name: backend
+          image: sarojsanyasi/dso202-backend:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef: { name: tasktracker-config }
+            - secretRef: { name: tasktracker-db-secret }
+          # The server only starts listening after it reaches the database,
+          # so give it up to 150s before liveness checks begin.
+          startupProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 5
+            failureThreshold: 30
+          # /api/status runs 'SELECT 1' and returns 503 if PostgreSQL is
+          # unreachable. A backend that cannot reach db-0 is removed from the
+          # Service, so the Ingress stops sending it traffic (lecture 2.2.8).
+          readinessProbe:
+            httpGet: { path: /api/status, port: http }
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 250m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-svc
+  namespace: dso202-assignment-02
+  labels: { app: tasktracker, tier: backend }
+spec:
+  type: ClusterIP
+  selector: { app: tasktracker, tier: backend }
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

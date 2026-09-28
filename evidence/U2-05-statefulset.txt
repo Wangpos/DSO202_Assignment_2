@@ -1,0 +1,32 @@
+$ kubectl get statefulset,pod,pvc,svc -l tier=database -o wide
+NAME                  READY   AGE   CONTAINERS   IMAGES
+statefulset.apps/db   1/1     48s   postgres     sarojsanyasi/dso202-db:1.0
+
+NAME       READY   STATUS    RESTARTS   AGE   IP           NODE             NOMINATED NODE   READINESS GATES
+pod/db-0   1/1     Running   0          48s   10.244.2.8   dso202-worker2   <none>           <none>
+
+NAME                              STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE   VOLUMEMODE
+persistentvolumeclaim/data-db-0   Bound    pvc-4465f3b5-37d4-44d4-839d-5d1dca33eb58   1Gi        RWO            standard       <unset>                 48s   Filesystem
+
+NAME             TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)    AGE   SELECTOR
+service/db-svc   ClusterIP   None         <none>        5432/TCP   48s   app=tasktracker,tier=database
+
+$ kubectl get pvc data-db-0 -o 'custom-columns=PVC:.metadata.name,VOLUME:.spec.volumeName,NODE:.metadata.annotations.volume\.kubernetes\.io/selected-node,OWNER:.metadata.ownerReferences[0].kind'
+PVC         VOLUME                                     NODE             OWNER
+data-db-0   pvc-4465f3b5-37d4-44d4-839d-5d1dca33eb58   dso202-worker2   <none>
+
+$ kubectl exec deploy/backend -- nslookup db-0.db-svc.dso202-assignment-02.svc.cluster.local
+Server:		10.96.0.10
+Address:	10.96.0.10:53
+
+Name:	db-0.db-svc.dso202-assignment-02.svc.cluster.local
+Address: 10.244.2.8
+
+$ kubectl exec deploy/backend -- nslookup db-svc.dso202-assignment-02.svc.cluster.local
+Server:		10.96.0.10
+Address:	10.96.0.10:53
+
+
+Name:	db-svc.dso202-assignment-02.svc.cluster.local
+Address: 10.244.2.8
+

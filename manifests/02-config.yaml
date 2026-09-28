@@ -1,0 +1,46 @@
+# =============================================================================
+# File       : manifests/02-config.yaml
+# Apply with : kubectl apply -f manifests/02-config.yaml
+# Contains   : app ConfigMap + DB Secret (same keys as Assignment 1)
+#
+# Changes from Assignment 1:
+#   BACKEND_URL ""  - the browser now calls /api on the SAME origin. The
+#                     Ingress (08-ingress.yaml) routes /api to backend-svc, so
+#                     the frontend no longer needs to know a backend address.
+#                     (Assignment 1 used http://backend-svc:8080, a name the
+#                     browser cannot resolve, and relied on an nginx proxy.)
+#   DB_HOST db-svc  - unchanged name, but db-svc is now the StatefulSet's
+#                     headless Service, so it resolves straight to db-0's IP.
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tasktracker-config
+  namespace: dso202-assignment-02
+  labels:
+    app.kubernetes.io/part-of: task-tracker
+data:
+  DB_HOST: "db-svc"
+  DB_PORT: "5432"
+  DB_NAME: "tasksdb"
+  POSTGRES_DB: "tasksdb"
+  APP_PORT: "8080"
+  CORS_ORIGIN: "https://tasktracker.local"
+  BACKEND_URL: ""
+---
+# Lab credentials only, as in Assignment 1. In a real cluster this Secret would
+# be created from a secret manager and never committed. RBAC (04-rbac.yaml)
+# deliberately gives the viewer and deployer accounts NO access to Secrets.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tasktracker-db-secret
+  namespace: dso202-assignment-02
+  labels:
+    app.kubernetes.io/part-of: task-tracker
+type: Opaque
+stringData:
+  DB_USER: "taskuser"
+  DB_PASSWORD: "changeme-in-real-life"
+  POSTGRES_USER: "taskuser"
+  POSTGRES_PASSWORD: "changeme-in-real-life"
